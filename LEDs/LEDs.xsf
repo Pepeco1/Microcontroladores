@@ -1,0 +1,194 @@
+;"#E:\Arquivos de Programas\Reads51\Include\SFR51.inc"
+; --- 8051 registers ---
+ACC        data    0xE0
+B          data    0xF0
+DPH        data    0x83
+DPL        data    0x82
+IE         data    0xA8
+IP         data    0xB8
+P0         data    0x80
+P1         data    0x90
+P2         data    0xA0
+P3         data    0xB0
+PCON       data    0x87
+PSW        data    0xD0
+SBUF       data    0x99
+SCON       data    0x98
+SP         data    0x81
+TCON       data    0x88
+TH0        data    0x8C
+TH1        data    0x8D
+TL0        data    0x8A
+TL1        data    0x8B
+TMOD       data    0x89
+
+; --- 8051 register bit fields ---
+; IE
+EA         bit     0xAF
+ES         bit     0xAC
+ET1        bit     0xAB
+EX1        bit     0xAA
+ET0        bit     0xA9
+EX0        bit     0xA8
+; IP 
+PS         bit     0xBC
+PT1        bit     0xBB
+PX1        bit     0xBA
+PT0        bit     0xB9
+PX0        bit     0xB8
+; P3
+RD         bit     0xB7
+WR         bit     0xB6
+T1         bit     0xB5
+T0         bit     0xB4
+INT1       bit     0xB3
+INT0       bit     0xB2
+TXD        bit     0xB1
+RXD        bit     0xB0
+; PSW
+CY         bit     0xD7
+AC         bit     0xD6
+F0         bit     0xD5
+RS1        bit     0xD4
+RS0        bit     0xD3
+OV         bit     0xD2
+P          bit     0xD0
+; TCON
+TF1        bit     0x8F
+TR1        bit     0x8E
+TF0        bit     0x8D
+TR0        bit     0x8C
+IE1        bit     0x8B
+IT1        bit     0x8A
+IE0        bit     0x89
+IT0        bit     0x88
+; SCON
+SM0        bit     0x9F
+SM1        bit     0x9E
+SM2        bit     0x9D
+REN        bit     0x9C
+TB8        bit     0x9B
+RB8        bit     0x9A
+TI         bit     0x99
+RI         bit     0x98
+
+
+cseg at 0
+
+location EQU 2000h ; ponto de montagem
+
+ljmp  startup
+
+;-------------------------------------------------
+ORG location; endereco inicial de montagem
+;-------------------------------------------------
+
+;Cabçalho do Paulmon2 ---------------------------
+
+DB  A5h,E5h,e0h,A5h    ;signiture bytes
+DB  35,255,0,0             ;id (35=prog, 253=startup, 254=command)
+DB  0,0,0,0                ;prompt code vector
+DB  0,0,0,0                ;reservado
+DB  0,0,0,0                ;reservado
+DB  0,0,0,0                ;reservado
+DB  0,0,0,0                ;definido pelo usuario
+DB  255,255,255,255        ;tamanho e checksum (255=não usado)
+DB  "LEDs",0               ;maximo 31 caracteres  mais o zero
+
+ORG location+40            ;código executavel começa aqui
+
+
+;port_b        EQU 4001h
+;port_c        EQU 4002h
+;port_abc_pgm  EQU 4003h
+;cout          EQU 0030h ;imprime o acumulador na serial
+;cin           EQU 0032h ;captura para o acumulador o que vem da serial
+esc           EQU 003Eh ;Checagem da tecla ESC do paulmon2
+cont1         EQU 7Fh
+cont2         EQU 7Eh
+cont3         EQU 7Dh
+port_1            EQU 90h
+
+startup:
+;mov  dptr, #port_abc_pgm     
+;mov  a, #128                 ;128 = a: out, b:out, c:out
+;movx @dptr, a
+
+begin:
+    setb TI                  ;SIMULAÇÃO LIGADA
+    mov dptr, #tabela        ;dptr->tabela
+
+loop:
+    clr   a                  ;a<-0
+    movc  a, @a+dptr         ;a<- o que dptr aponta
+    acall update             ;atualiza os leds
+    inc   dptr               ;incrementa dptr
+
+    clr   a                  ;a<-0
+    movc  a, @a+dptr         ;a<- o que dptr aponta
+    jz    begin              ;volta para begin se a for 0(fim da tabela)
+    acall delay              ;gasta ciclos de máquina
+    inc   dptr               ;incrementa o dptr
+
+    lcall esc                ;verifica de esc foi apertado
+    jc    exit               ;se foi, sai
+    sjmp  loop
+
+exit:
+    ret
+
+update:
+;push dph                ;guarda dptr
+;push dp1
+
+;mov  dptr, #port_1      ;dptr->port_1
+;movx @dptr, a           ;manda 'a' para onde dptr esta apontando
+
+    mov port_1, a
+;pop dp1                 ;pega dptr de volta
+;pop dph                 
+
+    ret
+
+delay:
+    mov cont1, a           ;cont1 recebe o valor de 'a'(atualmente uma constante)
+delay2:
+    mov cont2, #20        ;cont2 recebe a constante 100
+delay3:
+    mov cont3, #255        ;cont3 recebe a constante 255
+delay4:
+    nop                  ;gasta ciclos de máquina
+    nop
+    nop
+    nop
+    nop
+    nop
+    djnz cont3, delay4
+    djnz cont2, delay3      ;repete cont1*cont2 vezes
+    djnz cont1, delay2
+
+    ret
+
+tabela:; gera agrupamentos de 8 bits
+
+  DB 01111111b, 90
+  DB 00111111b, 70
+  DB 00011111b, 50
+  DB 10001111b, 40
+  DB 11000111b, 40
+  DB 11100011b, 40
+  DB 11110001b, 40
+  DB 11111000b, 50
+  DB 11111100b, 70
+  DB 11111110b, 90
+  DB 11111100b, 70
+  DB 11111000b, 50
+  DB 11110001b, 40
+  DB 11100011b, 40
+  DB 11000111b, 40
+  DB 10001111b, 40
+  DB 00011111b, 50
+  DB 00111111b, 70
+  DB 255,0
+  
+END
