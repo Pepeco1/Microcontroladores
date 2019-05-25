@@ -1,0 +1,462 @@
+C:\Users\Nayanne\Desktop\pepeco\StepperBI\STEPPERBI.xsf 
+C:\Users\Nayanne\Desktop\pepeco\StepperBI\STEPPERBI.asm 
+       1       1   00000                  ; ------------- STEPPERBI.asm --------------
+       2       2   00000                  ;30/04/2019
+       3       3   00000                  ;acionamento bidirecional incremental de motor de passo
+       4       4   00000                  ;granularidade 10, delay min 7, delta delay 24, delay max 247
+       5       5   00000                  ; -----------------------------------------------------
+C:\Program Files (x86)\Rigel\Reads51\Include\SFR51.inc 
+       7       1   00000                  ; --- 8051 registers ---
+       8       2   00000                  ACC        data    0xE0
+       9       3   00000                  B          data    0xF0
+      10       4   00000                  DPH        data    0x83
+      11       5   00000                  DPL        data    0x82
+      12       6   00000                  IE         data    0xA8
+      13       7   00000                  IP         data    0xB8
+      14       8   00000                  P0         data    0x80
+      15       9   00000                  P1         data    0x90
+      16      10   00000                  P2         data    0xA0
+      17      11   00000                  P3         data    0xB0
+      18      12   00000                  PCON       data    0x87
+      19      13   00000                  PSW        data    0xD0
+      20      14   00000                  SBUF       data    0x99
+      21      15   00000                  SCON       data    0x98
+      22      16   00000                  SP         data    0x81
+      23      17   00000                  TCON       data    0x88
+      24      18   00000                  TH0        data    0x8C
+      25      19   00000                  TH1        data    0x8D
+      26      20   00000                  TL0        data    0x8A
+      27      21   00000                  TL1        data    0x8B
+      28      22   00000                  TMOD       data    0x89
+      29      23   00000                  
+      30      24   00000                  ; --- 8051 register bit fields ---
+      31      25   00000                  ; IE
+      32      26   00000                  EA         bit     0xAF
+      33      27   00000                  ES         bit     0xAC
+      34      28   00000                  ET1        bit     0xAB
+      35      29   00000                  EX1        bit     0xAA
+      36      30   00000                  ET0        bit     0xA9
+      37      31   00000                  EX0        bit     0xA8
+      38      32   00000                  ; IP
+      39      33   00000                  PS         bit     0xBC
+      40      34   00000                  PT1        bit     0xBB
+      41      35   00000                  PX1        bit     0xBA
+      42      36   00000                  PT0        bit     0xB9
+      43      37   00000                  PX0        bit     0xB8
+      44      38   00000                  ; P3
+      45      39   00000                  RD         bit     0xB7
+      46      40   00000                  WR         bit     0xB6
+      47      41   00000                  T1         bit     0xB5
+      48      42   00000                  T0         bit     0xB4
+      49      43   00000                  INT1       bit     0xB3
+      50      44   00000                  INT0       bit     0xB2
+      51      45   00000                  TXD        bit     0xB1
+      52      46   00000                  RXD        bit     0xB0
+      53      47   00000                  ; PSW
+      54      48   00000                  CY         bit     0xD7
+      55      49   00000                  AC         bit     0xD6
+      56      50   00000                  F0         bit     0xD5
+      57      51   00000                  RS1        bit     0xD4
+      58      52   00000                  RS0        bit     0xD3
+      59      53   00000                  OV         bit     0xD2
+      60      54   00000                  P          bit     0xD0
+      61      55   00000                  ; TCON
+      62      56   00000                  TF1        bit     0x8F
+      63      57   00000                  TR1        bit     0x8E
+      64      58   00000                  TF0        bit     0x8D
+      65      59   00000                  TR0        bit     0x8C
+      66      60   00000                  IE1        bit     0x8B
+      67      61   00000                  IT1        bit     0x8A
+      68      62   00000                  IE0        bit     0x89
+      69      63   00000                  IT0        bit     0x88
+      70      64   00000                  ; SCON
+      71      65   00000                  SM0        bit     0x9F
+      72      66   00000                  SM1        bit     0x9E
+      73      67   00000                  SM2        bit     0x9D
+      74      68   00000                  REN        bit     0x9C
+      75      69   00000                  TB8        bit     0x9B
+      76      70   00000                  RB8        bit     0x9A
+      77      71   00000                  TI         bit     0x99
+      78      72   00000                  RI         bit     0x98
+      79      73   00000                  
+      80      74   00000                  
+      81       7   00000                  CSEG   AT 0000h
+      82       8   00000                  ORG    0000h
+      83       9   00000 022040             ljmp  2040h
+      84      10   02000                  ORG    2000h               ; endereco do codigo no 8051 s/ paulmon2
+      85      11   02000                  ;cabeçalho:  todo programa deve ter um, para o PAULMON2 poder gerenciar
+      86      12   02000 A5E5E0A5         DB     A5h,E5h,E0h,A5h     ;signiture bytes
+      87      13   02004 23FF0000         DB     35,255,0,0          ;id (35=prog)
+      88      14   02008 00000000         DB     0,0,0,0             ;prompt code vector
+      89      15   0200C 00000000         DB     0,0,0,0             ;reserved
+      90      16   02010 00000000         DB     0,0,0,0             ;reserved
+      91      17   02014 00000000         DB     0,0,0,0             ;reserved
+      92      18   02018 00000000         DB     0,0,0,0             ;user defined
+      93      19   0201C FFFFFFFF         DB     255,255,255,255     ;length and checksum (255=unused)
+      94      20   02020 5354455050455242 DB     "STEPPERBI",0         ;max 31 characters, plus the zero
+                         4900
+      95      21   02040                  ORG    2040h               ;executable code begins here
+      96      22   02040                  ;----------------------------------------------------Paramos aqui
+      97      23   02040                  ; constantes
+      98      24   02040                  ; 82C55 memory locations P0->PA, PA, PC
+      99      25   02040                  port_b          EQU 4001h   ; 82C55 port B
+     100      26   02040                  port_c          EQU 4002h   ; 82C55 port C
+     101      27   02040                  port_1          EQU 90h
+     102      28   02040                  port_abc_pgm    EQU 4003h   ; registrador de programacao
+     103      29   02040                  ;---------------nossas variaveis
+     104      30   02040                  dphc            EQU 7Fh     ; copia do dph
+     105      31   02040                  dplc            EQU 7Eh     ; copia do dpl
+     106      32   02040                  Passos          EQU 7Dh     ; numero de linhas da tabela
+     107      33   02040                  var0            EQU 7Ch     ;tempo de delay
+     108      34   02040                  var1            EQU 7Bh     ;variáveis de delay
+     109      35   02040                  dir             EQU 7Ah     ;direção: "E","D" ou "P"
+     110      36   02040                  delay           EQU 79h     ;delay: variavel de temporização
+     111      37   02040                  ;---------------nossas constantes
+     112      38   02040                  delta           EQU 24      ;delta delay: granularidade do acionamento
+     113      39   02040                  delmin          EQU 7       ;delay mínimo: velocidade máxima
+     114      40   02040                  delmax          EQU 247     ;dela máximo: velocidade minima
+     115      41   02040 8034              sjmp  startup ;salta as nossas subrotinas
+     116      42   02042                  ;----------------rotinas trazidas do paulmon2
+     117      43   02042                  cout:
+     118      44   02042 D299               setb  ti      ;simula serial livre
+     119      45   02044 3099FB             jnb	ti,cout ;aguarda a serial ser liberada
+     120      46   02047 C299               clr	ti		;clr ti before the mov to sbuf!
+     121      47   02049 F599               mov	sbuf,a  ;imprime o caractere
+     122      48   0204B 22                 ret
+     123      49   0204C                  ;----------------nossas subrotinas
+     124      50   0204C                  cinn:
+     125      51   0204C 309804             jnb	ri,sai  ;salta se a serial não estiver pronta
+     126      52   0204F C298               clr	ri      ;libera serial
+     127      53   02051 E599               mov	a,sbuf  ;le o caractere
+     128      54   02053                  sai:
+     129      55   02053 22                 ret
+     130      56   02054                  pstri:	   ;imprime string0 imediato
+     131      57   02054 85837F             mov   dphc,dph
+     132      58   02057 85827E             mov   dplc,dpl  ;preserva dptr
+     133      59   0205A D083               pop   dph
+     134      60   0205C D082               pop   dpl       ;recupera endereço da string
+     135      61   0205E C0E0               push	acc       ;preserva o acumulador
+     136      62   02060                  pstr1:
+     137      63   02060 E4                 clr	a         ;limpa o acumulador
+     138      64   02061 93                 movc	a,@a+dptr ;pega um caractere da mensagem
+     139      65   02062 A3                 inc	dptr      ;avança para o próximo caractere
+     140      66   02063 6004               jz	pstr2     ;salta se já foi o ultimo caractere
+     141      67   02065                  ;  mov	c, acc.7
+     142      68   02065                  ;  anl	a, #0x7F
+     143      69   02065 1142               acall	cout      ;imprime o caractere
+     144      70   02067                  ;  jc	pstr2
+     145      71   02067 80F7               sjmp	pstr1     ;vai imprimir o próximo
+     146      72   02069                  pstr2:
+     147      73   02069 D0E0               pop	acc       ;recupera o acumulador
+     148      74   0206B C082               push  dpl
+     149      75   0206D C083               push  dph       ;empilha o endereço de retorno
+     150      76   0206F 857E82             mov   dpl,dplc
+     151      77   02072 857F83             mov   dph,dphc  ;recupera dptr
+     152      78   02075 22                 ret
+     153      79   02076                  ;---------------Programa principal
+     154      80   02076                  startup:
+     155      81   02076 1154               acall pstri DB "STEPPERBI incremental: Aciona motor de passo (16/05/2019)",10,13,0
+     156      82   02078 5354455050455242   acall pstri DB "Use as teclas E e D para incrementar o acionamento para a esquerda e a direita",10,13,0
+                         4920696E6372656D
+                         656E74616C3A2041
+                         63696F6E61206D6F
+                         746F722064652070
+                         6173736F20283136
+                         2F30352F32303139
+                         290A0D00
+     157      83   020B4 1154               acall pstri DB "(ESC para encerrar)",10,13,0
+     158      84   020B6 5573652061732074 ;programação das portas A,B,C
+                         65636C6173204520
+                         6520442070617261
+                         20696E6372656D65
+                         6E746172206F2061
+                         63696F6E616D656E
+                         746F207061726120
+                         6120657371756572
+                         6461206520612064
+                         6972656974610A0D
+                         00
+     159      85   02107 1154               mov   dptr,#port_abc_pgm  ; dptr=port_abc_pgm
+     160      86   02109 2845534320706172   mov   a,#128              ; acc=128 ; a, b e c saida
+                         6120656E63657272
+                         6172290A0D00
+     161      87   0211F 904003             movx  @dptr,a             ; *dptr=a
+     162      88   02122 7480             ;inicializações
+     163      89   02124 F0                 mov   dir,#'P'            ;motor começa parado
+     164      90   02125 757A50           begin:
+     165      91   02128                    clr   a                   ;zera a resposta
+     165      91   02128 E4                 clr   a                   ;zera a resposta
+     166      92   02129 114C               acall cinn                ;pega 1 caractere se houver
+     167      93   0212B 6069               jz    aciona              ;vai acionar se não há novo comando
+     168      94   0212D 54DF               anl   a,#11011111b        ;converte para maiusculo
+     169      95   0212F B44533             cjne  a,#'E',not_E        ;salta se não é um E
+     170      96   02132 1142               acall cout                ;valida a entrada do usuário
+     171      97   02134 F5F0               mov   b,a                 ;guarda uma cópia da tecla
+     172      98   02136 B57A0D             cjne  a,dir,testaP        ;testa se tecla != de direção
+     173      99   02139                  subtrai:               ;delay <- delay - delta
+     174     100   02139 E579               mov   a,delay             ;pega o delay atual
+     175     101   0213B B41F00             cjne  a,#(delta+delmin),t_1;Cy <- 1 se delay < 31: delay não é subtraível
+     176     102   0213E                  t_1:
+     177     103   0213E 4056               jc    aciona              ;salta se já estiver na velocidade máxima
+     178     104   02140 9418               subb  a,#delta             ;subtrai delta: novo delay
+     179     105   02142 F579               mov   delay,a             ;guarda novo delay
+     180     106   02144 8050               sjmp  aciona              ;vai acionar
+     181     107   02146                  testaP:
+     182     108   02146 E57A               mov   a,dir               ;pega direcao
+     183     109   02148 B45008             cjne  a,#'P',soma         ;salta se direcao e 'E' ou 'D'
+     184     110   0214B 7579F7             mov   delay,#delmax       ;comeca a se mover na direcao escolhida
+     185     111   0214E 85F07A             mov   dir,b               ;atualiza a direcao
+     186     112   02151 8043               sjmp  aciona              ;vai acionar
+     187     113   02153                  soma:                  ;delay <- delay + delta
+     188     114   02153 E579               mov   a,delay             ;pega o delay atual
+     189     115   02155                  ;  cjne  a,#(delmax-delta+1),t2 ;Cy <- 1 se delay < 224: delay é somável
+     190     116   02155 B4E000             cjne  a,#224,t2           ;Cy <- 1 se delay < 224: delay é somável
+     191     117   02158                  t2:
+     192     118   02158 5006               jnc   parada              ;velocidade menor que mínima: parar
+     193     119   0215A 2418               add   a,#delta             ;soma delta: novo delay
+     194     120   0215C F579               mov   delay,a             ;guarda novo delay
+     195     121   0215E                    ;mov   dir,b               ;guarda a nova(?) direção
+     196     122   0215E 8036               sjmp  aciona              ;vai acionar
+     197     123   02160                  parada:
+     198     124   02160 757A50             mov   dir,#'P'            ;motor parado
+     199     125   02163 8031               sjmp  aciona              ;vai acionar
+     200     126   02165                  not_E:
+     201     127   02165 B44409             cjne  a,#'D',not_D        ;salta se não é um D
+     202     128   02168 1142               acall cout                ;valida entrada do usuário
+     203     129   0216A F5F0               mov   b,a                 ;guarda uma cópia da tecla
+     204     130   0216C B57AD7             cjne  a,dir,testaP        ;testa se tecla != de direção
+     205     131   0216F 80C8               sjmp  subtrai
+     206     132   02171                  not_D:
+     207     133   02171 B41B22             cjne  a,#27,aciona         ;se também não é um ESC vai acionar
+     208     134   02174                  exit:
+     209     135   02174 E4                 clr   a                   ;configuração que desliga as bobinas
+     210     136   02175 904001             mov   dptr,#port_b        ; onde as bobinas do motor estao
+     211     137   02178 F0                 movx  @dptr,a             ; *dptr=acc; aciona os motores
+     212     138   02179 F4                 cpl   a                   ; inverte os bits
+     213     139   0217A 904002             mov   dptr,#port_c        ; onde os LEDs estao
+     214     140   0217D F0                 movx  @dptr,a             ; desliga os LEDs
+     215     141   0217E 1154               acall pstri DB 10,13,"Execucao concluida",0
+     216     142   02180 0A0D457865637563   ret                       ;retorna ao Paulmon2
+                         616F20636F6E636C
+                         7569646100
+     217     143   02195 22               aciona:
+     218     144   02196                    mov   a,dir               ;pega a direcao
+     218     144   02196 E57A               mov   a,dir               ;pega a direcao
+     219     145   02198 B44505             cjne  a,#'E',not_tab_E    ;salta se não está girando a esquerda
+     220     146   0219B 90222C             mov   dptr,#table_esq     ;dptr -> table_esq
+     221     147   0219E 8034               sjmp  giro                ;vai percorrer
+     222     148   021A0                  not_tab_E:
+     223     149   021A0 B44405             cjne  a,#'D',not_tab_D    ;salta se não está girando a direita
+     224     150   021A3 902230             mov   dptr,#table_dir     ;dptr -> table_dir
+     225     151   021A6 802C               sjmp  giro
+     226     152   021A8                  not_tab_D:
+     227     153   021A8 B45002             cjne  a,#'P',not_P        ;salta se não está parado
+     228     154   021AB 2128               ajmp  begin               ;motor esta parado, aguarda novo comando do usuário
+     229     155   021AD                  not_P:
+     230     156   021AD 1154               acall pstri DB "Erro fatal! Velocidade inexistente",0
+     231     157   021AF 4572726F20666174   sjmp  exit
+                         616C212056656C6F
+                         6369646164652069
+                         6E6578697374656E
+                         746500
+     232     158   021D2 80A0             giro:
+     233     159   021D4                    mov   Passos,#4          ; varLinhas=4
+     233     159   021D4 757D04             mov   Passos,#4          ; varLinhas=4
+     234     160   021D7                  loop:
+     235     161   021D7 E4                 clr   a                   ; acc=00h
+     236     162   021D8 93                 movc  a,@a+dptr           ; acc=tabela[0]
+     237     163   021D9 C083               push  dph                 ; guarda MSByte do dptr na pilha
+     238     164   021DB C082               push  dpl                 ; guarda LSByte do dptr na pilha
+     239     165   021DD 904001             mov   dptr,#port_b        ; onde as bobinas do motor estao
+     240     166   021E0 F0                 movx  @dptr,a             ; *dptr=acc; aciona os motores
+     241     167   021E1 F4                 cpl   a                   ; inverte os bits
+     242     168   021E2 F590               mov port_1,a
+     243     169   021E4 904002             mov   dptr,#port_c        ; onde os LEDs estao
+     244     170   021E7 F0                 movx  @dptr,a             ; liga os LEDs
+     245     171   021E8 D082               pop   dpl                 ; resgata o LSByte do dptr
+     246     172   021EA D083               pop   dph                 ; resgata o MSByte do dptr
+     247     173   021EC 85797C             mov   var0,delay          ; inicializa a variavel de temporizacao
+     248     174   021EF                  dly2:
+     249     175   021EF 757BFA             mov   var1,#250           ; var1=50  (constante de delay)
+     250     176   021F2                  dly3:
+     251     177   021F2 00                 nop                       ; no operation
+     252     178   021F3 00                 nop nop nop nop nop
+     253     179   021F4 00                 nop nop nop nop nop
+     254     180   021F5 00                 nop nop nop nop nop
+     255     181   021F6 00               
+     256     182   021F7 00                 nop nop nop nop nop
+     257     183   021F8 00                 nop nop nop nop nop
+     258     184   021F9 00                 nop nop nop nop nop
+     259     185   021FA 00                 nop nop nop nop nop
+     260     186   021FB 00                 nop nop nop nop nop
+     261     187   021FC 00                 nop nop nop nop nop
+     262     188   021FD 00                 djnz  var1,dly3           ; --var1 e pula se nao zero
+     263     189   021FE 00                 djnz  var0,dly2           ; --var0 e pula se nao zero
+     264     190   021FF 00                 inc   dptr                ; dptr++
+     265     191   02200 00                 djnz  Passos,loop        ;reposiciona no inicio da tabela
+     266     192   02201 00                 ajmp  begin                ; GOTO loop
+     267     193   02202 00               table_esq:
+     268     194   02203 00               DB 00000001b
+     269     195   02204 00               DB 00000010b
+     270     196   02205 00               DB 00000100b
+     271     197   02206 00               DB 00001000b
+     272     198   02207 00               
+     273     199   02208 00               table_dir:
+     274     200   02209 00               DB 00001000b
+     275     201   0220A 00               DB 00000100b
+     276     202   0220B 00               DB 00000010b
+     277     203   0220C 00               DB 00000001b
+     278     204   0220D 00               
+     279     205   0220E 00               
+     280     206   0220F 00               END
+     281     206   02210 00               END
+     282     206   02211 00               END
+     283     206   02212 00               END
+     284     206   02213 00               END
+     285     206   02214 00               END
+     286     206   02215 00               END
+     287     206   02216 00               END
+     288     206   02217 00               END
+     289     206   02218 00               END
+     290     206   02219 00               END
+     291     206   0221A 00               END
+     292     206   0221B 00               END
+     293     206   0221C 00               END
+     294     206   0221D 00               END
+     295     206   0221E 00               END
+     296     206   0221F 00               END
+     297     206   02220 D57BCF           END
+     298     206   02223 D57CC9           END
+     299     206   02226 A3               END
+     300     206   02227 D57DAD           END
+     301     206   0222A 2128             END
+     302     206   0222C                  END
+     302     206   0222C 01               END
+     303     206   0222D 02               END
+     304     206   0222E 04               END
+     305     206   0222F 08               END
+     306     206   02230                  END
+     306     206   02230 08               END
+     307     206   02231 04               END
+     308     206   02232 02               END
+     309     206   02233 01               END
+     310     206   02234                  END
+
+
+*** Symbols ***
+name                    hex      dec          type     segment
+--------------------------------------------------------------
+testaP               0x2146     8518          code     absolute
+TR1                  0x008E      142           bit     absolute
+T0                   0x00B4      180           bit     absolute
+ET1                  0x00AB      171           bit     absolute
+SCON                 0x0098      152          data     absolute
+not_D                0x2171     8561          code     absolute
+soma                 0x2153     8531          code     absolute
+IE0                  0x0089      137           bit     absolute
+T1                   0x00B5      181           bit     absolute
+not_E                0x2165     8549          code     absolute
+t2                   0x2158     8536          code     absolute
+t_1                  0x213E     8510          code     absolute
+pstri                0x2054     8276          code     absolute
+IE1                  0x008B      139           bit     absolute
+AC                   0x00D6      214           bit     absolute
+SBUF                 0x0099      153          data     absolute
+begin                0x2128     8488          code     absolute
+delta                0x0018       24        number     absolute
+dplc                 0x007E      126        number     absolute
+port_b               0x4001    16385        number     absolute
+SM0                  0x009F      159           bit     absolute
+IT0                  0x0088      136           bit     absolute
+RD                   0x00B7      183           bit     absolute
+PS                   0x00BC      188           bit     absolute
+PCON                 0x0087      135          data     absolute
+loop                 0x21D7     8663          code     absolute
+sai                  0x2053     8275          code     absolute
+port_c               0x4002    16386        number     absolute
+RB8                  0x009A      154           bit     absolute
+REN                  0x009C      156           bit     absolute
+SM1                  0x009E      158           bit     absolute
+IT1                  0x008A      138           bit     absolute
+P0                   0x0080      128          data     absolute
+dly2                 0x21EF     8687          code     absolute
+Passos               0x007D      125        number     absolute
+port_1               0x0090      144        number     absolute
+SM2                  0x009D      157           bit     absolute
+CY                   0x00D7      215           bit     absolute
+INT0                 0x00B2      178           bit     absolute
+TL0                  0x008A      138          data     absolute
+P1                   0x0090      144          data     absolute
+dly3                 0x21F2     8690          code     absolute
+cinn                 0x204C     8268          code     absolute
+TI                   0x0099      153           bit     absolute
+TB8                  0x009B      155           bit     absolute
+INT1                 0x00B3      179           bit     absolute
+PX0                  0x00B8      184           bit     absolute
+TL1                  0x008B      139          data     absolute
+P2                   0x00A0      160          data     absolute
+startup              0x2076     8310          code     absolute
+delmin               0x0007        7        number     absolute
+dir                  0x007A      122        number     absolute
+dphc                 0x007F      127        number     absolute
+OV                   0x00D2      210           bit     absolute
+PX1                  0x00BA      186           bit     absolute
+P3                   0x00B0      176          data     absolute
+IP                   0x00B8      184          data     absolute
+DPH                  0x0083      131          data     absolute
+delmax               0x00F7      247        number     absolute
+RI                   0x0098      152           bit     absolute
+table_dir            0x2230     8752          code     absolute
+RXD                  0x00B0      176           bit     absolute
+TH0                  0x008C      140          data     absolute
+P                    0x00D0      208           bit     absolute
+PT0                  0x00B9      185           bit     absolute
+TH1                  0x008D      141          data     absolute
+not_tab_D            0x21A8     8616          code     absolute
+cout                 0x2042     8258          code     absolute
+TF0                  0x008D      141           bit     absolute
+TXD                  0x00B1      177           bit     absolute
+PT1                  0x00BB      187           bit     absolute
+DPL                  0x0082      130          data     absolute
+not_tab_E            0x21A0     8608          code     absolute
+aciona               0x2196     8598          code     absolute
+delay                0x0079      121        number     absolute
+TF1                  0x008F      143           bit     absolute
+WR                   0x00B6      182           bit     absolute
+EX0                  0x00A8      168           bit     absolute
+ACC                  0x00E0      224          data     absolute
+not_P                0x21AD     8621          code     absolute
+exit                 0x2174     8564          code     absolute
+RS0                  0x00D3      211           bit     absolute
+EX1                  0x00AA      170           bit     absolute
+EA                   0x00AF      175           bit     absolute
+IE                   0x00A8      168          data     absolute
+B                    0x00F0      240          data     absolute
+pstr1                0x2060     8288          code     absolute
+port_abc_pgm         0x4003    16387        number     absolute
+RS1                  0x00D4      212           bit     absolute
+F0                   0x00D5      213           bit     absolute
+ES                   0x00AC      172           bit     absolute
+SP                   0x0081      129          data     absolute
+PSW                  0x00D0      208          data     absolute
+parada               0x2160     8544          code     absolute
+pstr2                0x2069     8297          code     absolute
+var0                 0x007C      124        number     absolute
+table_esq            0x222C     8748          code     absolute
+giro                 0x21D4     8660          code     absolute
+subtrai              0x2139     8505          code     absolute
+var1                 0x007B      123        number     absolute
+TR0                  0x008C      140           bit     absolute
+ET0                  0x00A9      169           bit     absolute
+TMOD                 0x0089      137          data     absolute
+TCON                 0x0088      136          data     absolute
+
+
+*** Externals (Imports) ***
+name                    hex      dec          type
+--------------------------------------------------
+
+
+*** Publics (Exports) ***
+name                    hex      dec          type
+--------------------------------------------------

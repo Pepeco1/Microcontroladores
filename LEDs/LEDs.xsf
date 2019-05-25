@@ -1,4 +1,4 @@
-;"#E:\Arquivos de Programas\Reads51\Include\SFR51.inc"
+;"#C:\Program Files (x86)\Rigel\Reads51\Include\SFR51.inc"
 ; --- 8051 registers ---
 ACC        data    0xE0
 B          data    0xF0
@@ -130,8 +130,8 @@ loop:
     acall delay              ;gasta ciclos de máquina
     inc   dptr               ;incrementa o dptr
 
-    lcall esc                ;verifica de esc foi apertado
-    jc    exit               ;se foi, sai
+;lcall esc                ;verifica de esc foi apertado
+;jc    exit               ;se foi, sai
     sjmp  loop
 
 exit:
@@ -153,11 +153,11 @@ update:
 delay:
     mov cont1, a           ;cont1 recebe o valor de 'a'(atualmente uma constante)
 delay2:
-    mov cont2, #20        ;cont2 recebe a constante 100
+    mov cont2, #20         ;cont2 recebe a constante 20
 delay3:
     mov cont3, #255        ;cont3 recebe a constante 255
 delay4:
-    nop                  ;gasta ciclos de máquina
+    nop                    ;gasta ciclos de máquina
     nop
     nop
     nop

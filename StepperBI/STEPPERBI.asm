@@ -4,9 +4,9 @@
 ;granularidade 10, delay min 7, delta delay 24, delay max 247
 ; ----------------------------------------------------- 
 #include <SFR51.inc>
-;CSEG   AT 0000h
-;ORG    0000h
-;  ljmp  2040h
+CSEG   AT 0000h
+ORG    0000h
+  ljmp  2040h
 ORG    2000h               ; endereco do codigo no 8051 s/ paulmon2
 ;cabeçalho:  todo programa deve ter um, para o PAULMON2 poder gerenciar
 DB     A5h,E5h,E0h,A5h     ;signiture bytes
@@ -24,6 +24,7 @@ ORG    2040h               ;executable code begins here
 ; 82C55 memory locations P0->PA, PA, PC
 port_b          EQU 4001h   ; 82C55 port B
 port_c          EQU 4002h   ; 82C55 port C
+port_1          EQU 90h
 port_abc_pgm    EQU 4003h   ; registrador de programacao
 ;---------------nossas variaveis
 dphc            EQU 7Fh     ; copia do dph
@@ -40,7 +41,7 @@ delmax          EQU 247     ;dela máximo: velocidade minima
  sjmp  startup ;salta as nossas subrotinas
 ;----------------rotinas trazidas do paulmon2
 cout:
-;  setb  ti      ;simula serial livre	
+  setb  ti      ;simula serial livre	
   jnb	ti,cout ;aguarda a serial ser liberada
   clr	ti		;clr ti before the mov to sbuf!
   mov	sbuf,a  ;imprime o caractere
@@ -117,7 +118,7 @@ t2:
   jnc   parada              ;velocidade menor que mínima: parar
   add   a,#delta             ;soma delta: novo delay
   mov   delay,a             ;guarda novo delay
-  mov   dir,b               ;guarda a nova(?) direção
+  ;mov   dir,b               ;guarda a nova(?) direção
   sjmp  aciona              ;vai acionar
 parada:
   mov   dir,#'P'            ;motor parado
@@ -164,8 +165,9 @@ loop:
   mov   dptr,#port_b        ; onde as bobinas do motor estao
   movx  @dptr,a             ; *dptr=acc; aciona os motores
   cpl   a                   ; inverte os bits
+  mov port_1,a
   mov   dptr,#port_c        ; onde os LEDs estao
-  movx  @dptr,a             ; liga os LEDs
+  movx  @dptr,a             ; liga os LEDs    
   pop   dpl                 ; resgata o LSByte do dptr
   pop   dph                 ; resgata o MSByte do dptr
   mov   var0,delay          ; inicializa a variavel de temporizacao
@@ -173,22 +175,32 @@ dly2:
   mov   var1,#250           ; var1=50  (constante de delay)
 dly3:
   nop                       ; no operation
-  nop
+  nop nop nop nop nop
+  nop nop nop nop nop
+  nop nop nop nop nop
+  
+  nop nop nop nop nop
+  nop nop nop nop nop
+  nop nop nop nop nop
+  nop nop nop nop nop
+  nop nop nop nop nop
+  nop nop nop nop nop
   djnz  var1,dly3           ; --var1 e pula se nao zero
   djnz  var0,dly2           ; --var0 e pula se nao zero
   inc   dptr                ; dptr++
   djnz  Passos,loop        ;reposiciona no inicio da tabela
   ajmp  begin                ; GOTO loop
 table_esq:
+DB 00000001b
+DB 00000010b
+DB 00000100b
+DB 00001000b
+
+table_dir:
 DB 00001000b
 DB 00000100b
 DB 00000010b
 DB 00000001b
 
-table_dir:
-DB 00000001b
-DB 00000010b
-DB 00000100b
-DB 00001000b
 
 END
